@@ -1,0 +1,12 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80"
+    # Option A: build-time env (CRA). Provide a .env.production file in this folder.
+    # env_file:
+    #   - .env.production
+    # Option B: runtime env injection (advanced) not used by CRA; prefer Option A.
+    restart: unless-stopped
