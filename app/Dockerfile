@@ -6,8 +6,8 @@ WORKDIR /app
 COPY package.json package-lock.json* .npmrc* ./
 RUN npm ci --no-audit --no-fund
 
-# Copy source
-COPY . .
+# clone current project
+RUN git clone --branch main https://github.com/mriosnet/ReactFirebase.git .
 
 # If a .env.production is present, CRA will pick up REACT_APP_* values at build time.
 # Build the static assets to /app/build
