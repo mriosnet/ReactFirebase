@@ -4,7 +4,7 @@ FROM node:20-alpine AS nomina-app-build
 RUN apk add --no-cache git
 
 # Clone the repository
-RUN git clone --branch main https://github.com/mriosnet/ReactFirebase.git /
+RUN git clone --branch main https://github.com/mriosnet/ReactFirebase.git /app
 
 # Set working directory
 WORKDIR /app
