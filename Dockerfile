@@ -10,9 +10,10 @@ RUN git clone --branch main https://github.com/mriosnet/ReactFirebase.git /app
 WORKDIR /app
 
 # Install dependencies
-RUN npm ci --no-audit --no-fund
+RUN npm ci 
 COPY docker/nginx/default.conf /etc/nginx/conf.d/default.conf
 # If a .env.production is present, CRA will pick up REACT_APP_* values at build time.
+
 # Build the static assets to /app/build
 RUN npm run build
 
