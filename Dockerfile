@@ -1,7 +1,7 @@
 # ---- Build stage ----
-FROM node:20-alpine AS nomina-app-build
-# Install git to clone repo
-RUN apk add --no-cache git
+FROM node:22-alpine AS nomina-app-build
+# Install git to clone repo and update all packages
+RUN apk update && apk add --no-cache git
 
 # Clone the repository
 RUN git clone --branch main https://github.com/mriosnet/ReactFirebase.git /app
@@ -10,7 +10,7 @@ RUN git clone --branch main https://github.com/mriosnet/ReactFirebase.git /app
 WORKDIR /app
 
 # Install dependencies
-RUN npm ci 
+RUN npm ci --no-audit --no-fund
 COPY docker/nginx/default.conf /etc/nginx/conf.d/default.conf
 # If a .env.production is present, CRA will pick up REACT_APP_* values at build time.
 
@@ -18,7 +18,7 @@ COPY docker/nginx/default.conf /etc/nginx/conf.d/default.conf
 RUN npm run build
 
 # ---- Runtime stage ----
-FROM nginx:1.27-alpine AS runtime
+FROM nginx:alpine AS runtime
 
 # Nginx conf for a React SPA with long-cache for hashed assets
 COPY docker/nginx/default.conf /etc/nginx/conf.d/default.conf
