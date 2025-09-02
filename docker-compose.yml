@@ -1,0 +1,26 @@
+services:
+  reactapp:
+    container_name: nominaApp
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    # Option A: build-time env (CRA). Provide a .env.production file in this folder.
+    # env_file:
+    #   - .env.production
+    # Option B: runtime env injection (advanced) not used by CRA; prefer Option A.
+    restart: unless-stopped
+  mongodb:
+    image: mongo:7.0
+    container_name: mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: nominaapp
+      MONGO_INITDB_ROOT_PASSWORD: "ThEStrOnGPaSsWoRd@2864"
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+volumes:
+  mongo_data:
