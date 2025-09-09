@@ -1,0 +1,18 @@
+version: '3.8'
+services:
+  frontend:
+    image: ghcr.io/mriosnet/raices-nomina-frontend:latest
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+  backend:
+    image: ghcr.io/mriosnet/raices-nomina-backend:latest
+    ports:
+      - "4000:4000"
+    volumes:
+      - sqlite_data:/data # adjust path if your SQLite DB is elsewhere
+
+volumes:
+  sqlite_data:

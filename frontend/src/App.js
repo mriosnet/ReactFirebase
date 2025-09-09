@@ -15,8 +15,20 @@ const App = () => {
   const [incomeData, setIncomeData] = useState({});
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedDaysForAnalysis, setSelectedDaysForAnalysis] = useState([]);
-  const [selectedEmployeeForAnalysis, setSelectedEmployeeForAnalysis] = useState('');
   
+  // --- TAREA 2: Modificación de estado para análisis de empleados ---
+  // Se cambia de string a array para almacenar múltiples empleados.
+  const [selectedEmployeesForAnalysis, setSelectedEmployeesForAnalysis] = useState([]);
+  
+  // --- TAREA 1: Listas para datalist ---
+  const POSITIONS_LIST = ['Server', 'Bartender', 'Host', 'Busser', 'Runner', 'Cook', 'Pastry'];
+  const EMPLOYEES_LIST = [
+    'Germán González', 'Juan Velázquez', 'Arnaldo Sánchez', 'Maris Sánchez',
+    'Sandy Tapanes', 'Kamila Navarro', 'Luvian Silva', 'Richard De Armas',
+    'Diana Rodríguez', 'Yudisleidy Figueredo', 'Osmany Piquero', 'Ángel García',
+    'Yiselys Azcuy', 'Arlettys González'
+  ];
+
   // URL del backend
   const API_BASE = process.env.REACT_APP_API_BASE || 'http://127.0.0.1:4000';
 
@@ -570,7 +582,7 @@ const App = () => {
   const startCustomAnalysis = () => {
     setCurrentView('custom-analysis');
     // Resetear selección de empleado al iniciar nuevo análisis
-    setSelectedEmployeeForAnalysis('');
+    setSelectedEmployeesForAnalysis([]);
   };
   // Función para convertir datos del día a CSV
   const convertDayDataToCSV = (date) => {
@@ -785,11 +797,6 @@ const App = () => {
     return data.rows.reduce((sum, row) => sum + (parseFloat(row.percentage) || 0), 0);
   };
   
-  // =================================================================
-  // == INICIO: CÓDIGO AÑADIDO PARA DESCARGAR CSV DEL TIPS POOL ==
-  // =================================================================
-
-  // Función para convertir datos del Tips Pool a CSV
   const convertTipsPoolToCSV = (date) => {
     const data = tipsPoolData[date];
     if (!data || !data.rows || data.rows.length === 0) return "";
@@ -804,9 +811,8 @@ const App = () => {
     
     const rows = [];
     
-    // Añadir una fila con el total del Tips Pool
     rows.push([`"Total Tips Pool: $${(data.total || 0).toFixed(2)}"`].join(','));
-    rows.push([''].join(',')); // Línea en blanco para separar
+    rows.push([''].join(','));
 
     data.rows.forEach(row => {
       if (row.employeeColumns && row.employeeColumns.length > 0) {
@@ -820,7 +826,6 @@ const App = () => {
           ].join(','));
         });
       } else {
-        // Si un puesto no tiene empleados, aun así lo mostramos
         rows.push([
           `"${row.position || ''}"`,
           `"${row.percentage || 0}"`,
@@ -834,7 +839,6 @@ const App = () => {
     return [headers.join(','), ...rows].join('\n');
   };
 
-  // Función para descargar el reporte del Tips Pool
   const downloadTipsPoolCSV = (date) => {
     const csvContent = convertTipsPoolToCSV(date);
     if (!csvContent) {
@@ -852,9 +856,46 @@ const App = () => {
     document.body.removeChild(link);
   };
 
-  // ===============================================================
-  // == FIN: CÓDIGO AÑADIDO PARA DESCARGAR CSV DEL TIPS POOL ==
-  // ===============================================================
+  // --- TAREA 3: Función para descargar CSV de análisis de empleados ---
+  const downloadEmployeeAnalysisCSV = () => {
+    if (selectedEmployeesForAnalysis.length === 0) {
+      alert("No hay empleados seleccionados para exportar.");
+      return;
+    }
+
+    const headers = ['Empleado', 'Net Sales', 'Tips', 'Gratuity', '5%', 'T+G', 'T+G-5%'];
+    const csvRows = [headers.join(',')];
+
+    selectedEmployeesForAnalysis.forEach(normalizedName => {
+      const employeeTotals = calculateEmployeePeriodTotals(normalizedName);
+      const displayName = selectedDaysForAnalysis
+        .flatMap(date => incomeData[date] || [])
+        .find(row => normalizeName(row.name) === normalizedName)?.name || normalizedName;
+
+      const row = [
+        `"${displayName}"`,
+        employeeTotals.netSales.toFixed(2),
+        employeeTotals.tips.toFixed(2),
+        employeeTotals.gratuity.toFixed(2),
+        employeeTotals.fivePercent.toFixed(2),
+        employeeTotals.tPlusG.toFixed(2),
+        employeeTotals.tPlusGMinusFive.toFixed(2)
+      ];
+      csvRows.push(row.join(','));
+    });
+
+    const csvContent = csvRows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    const dateStr = new Date().toISOString().split('T')[0];
+    link.setAttribute('href', url);
+    link.setAttribute('download', `analisis_empleados_${dateStr}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   // Generar días del mes
   const firstDay = new Date(currentYear, currentMonth, 1);
@@ -879,6 +920,14 @@ const App = () => {
   }
   return (
     <div className="min-h-screen bg-gray-900 text-white">
+      {/* --- TAREA 1: Definición de datalists --- */}
+      <datalist id="employee-names">
+        {EMPLOYEES_LIST.map(name => <option key={name} value={name} />)}
+      </datalist>
+      <datalist id="job-positions">
+        {POSITIONS_LIST.map(pos => <option key={pos} value={pos} />)}
+      </datalist>
+
       {/* Página de Inicio */}
       {currentView === 'home' && (
         <div
@@ -1016,9 +1065,6 @@ const App = () => {
             <h2 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500">
               Tips Pool - {selectedDate}
             </h2>
-            {/* ======================================= */}
-            {/* == INICIO: BOTÓN DE DESCARGA AÑADIDO == */}
-            {/* ======================================= */}
             <div className="flex gap-2">
               <button
                 onClick={() => downloadTipsPoolCSV(selectedDate)}
@@ -1033,12 +1079,8 @@ const App = () => {
                 💾 Guardar
               </button>
             </div>
-            {/* ===================================== */}
-            {/* == FIN: BOTÓN DE DESCARGA AÑADIDO == */}
-            {/* ===================================== */}
           </div>
           <div className="bg-gray-800 rounded-2xl p-6 shadow-2xl mb-6">
-            {/* Campo para el total de tips */}
             <div className="mb-6">
               <label className="block text-lg font-semibold mb-2">Total Tips Pool:</label>
               <input
@@ -1055,7 +1097,6 @@ const App = () => {
                 className="bg-gray-700 text-white rounded-lg px-4 py-2 w-48 text-xl"
               />
               
-              {/* Indicador de porcentaje asignado */}
               {(() => {
                 const percentageSum = calculatePercentageSum(selectedDate);
                 let statusText = '';
@@ -1093,20 +1134,20 @@ const App = () => {
                     <th className="py-3 px-4 font-semibold" style={{ minWidth: '200px' }}>Puesto</th>
                     <th className="py-3 px-4 font-semibold" style={{ minWidth: '100px' }}>%</th>
                     <th className="py-3 px-4 font-semibold" style={{ minWidth: '100px' }}>Personal</th>
-                    {/* Las columnas de empleados se agregarán dinámicamente */}
                     <th className="py-3 px-4 font-semibold" style={{ minWidth: '150px' }}>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
                   {(tipsPoolData[selectedDate]?.rows || []).map((row, index) => {
-                    // Calcular el número de columnas de empleados necesarias
                     const employeeColumns = row.employeeColumns || [];
                     
                     return (
                       <tr key={row.id} className="border-b border-gray-700 hover:bg-gray-700">
                         <td className="py-3 px-4">
+                          {/* --- TAREA 1: Datalist para Puestos en Tips Pool --- */}
                           <input
                             type="text"
+                            list="job-positions"
                             value={row.position}
                             onChange={(e) => updateTipsPoolRow(selectedDate, index, 'position', e.target.value)}
                             className="bg-gray-600 text-white rounded px-3 py-2 w-full"
@@ -1132,12 +1173,13 @@ const App = () => {
                           />
                         </td>
                         
-                        {/* Columnas dinámicas para empleados */}
                         {employeeColumns.map((employee, empIndex) => (
                           <td key={empIndex} className="py-3 px-4">
                             <div className="flex flex-col space-y-2">
+                              {/* --- TAREA 1: Datalist para Nombres en Tips Pool --- */}
                               <input
                                 type="text"
+                                list="employee-names"
                                 value={employee.name}
                                 onChange={(e) => updateTipsPoolRow(selectedDate, index, `employeeName_${empIndex}`, e.target.value)}
                                 className="bg-gray-600 text-white rounded px-2 py-1 text-sm"
@@ -1334,9 +1376,7 @@ const App = () => {
             <h2 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-green-400">
               Análisis Personalizado
             </h2>
-            {/* Botón "Descargar" ELIMINADO según solicitud */}
           </div>
-          {/* Resumen de días seleccionados */}
           <div className="bg-gray-800 rounded-2xl p-6 shadow-2xl mb-6">
             <h3 className="text-2xl font-bold text-blue-400 mb-4">Días Seleccionados ({selectedDaysForAnalysis.length})</h3>
             <div className="flex flex-wrap gap-2">
@@ -1347,7 +1387,6 @@ const App = () => {
               ))}
             </div>
           </div>
-          {/* Totales principales */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             {(() => {
               const totals = calculateCustomAnalysisTotals();
@@ -1364,13 +1403,11 @@ const App = () => {
               </div>
             ))}
           </div>
-          {/* Tabla de desglose por día */}
           <div className="bg-gray-800 rounded-2xl p-6 shadow-2xl mb-8">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-2xl font-bold text-cyan-400">Desglose por Día</h3>
               <button
                 onClick={() => {
-                  // Preparar datos para CSV: encabezados + filas de datos
                   const csvData = [];
                   const headers = ['Fecha', 'Net Sales', 'Tips', 'Gratuity', '5%', 'T+G', 'T+G-5%'];
                   csvData.push(headers.join(','));
@@ -1387,7 +1424,6 @@ const App = () => {
                     ];
                     csvData.push(row.join(','));
                   });
-                  // Fila de totales
                   const totals = calculateCustomAnalysisTotals();
                   const totalRow = [
                     'TOTALES',
@@ -1399,7 +1435,6 @@ const App = () => {
                     totals.tPlusGMinusFive.toFixed(2)
                   ];
                   csvData.push(totalRow.join(','));
-                  // Crear y descargar CSV
                   const csvContent = csvData.join('\n');
                   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
                   const link = document.createElement('a');
@@ -1444,7 +1479,6 @@ const App = () => {
                       </tr>
                     );
                   })}
-                  {/* Fila de totales */}
                   <tr className="bg-gray-900 font-bold">
                     <td className="py-3 px-4">TOTALES</td>
                     <td className="py-3 px-4 text-green-400">
@@ -1470,26 +1504,29 @@ const App = () => {
               </table>
             </div>
           </div>
-          {/* Nueva tabla: Empleados Por Periodo */}
+          {/* --- TAREA 2 y 3: Tabla de empleados por periodo modificada --- */}
           <div className="bg-gray-800 rounded-2xl p-6 shadow-2xl">
             <h3 className="text-2xl font-bold text-purple-400 mb-4">Empleados Por Periodo</h3>
-            {/* Selector de empleado */}
             <div className="mb-6">
-              <label className="block text-gray-300 mb-2">Seleccionar Empleado:</label>
+              <label className="block text-gray-300 mb-2">Añadir Empleado al Análisis:</label>
               <select
-                value={selectedEmployeeForAnalysis}
-                onChange={(e) => setSelectedEmployeeForAnalysis(e.target.value)}
+                defaultValue=""
+                onChange={(e) => {
+                  const selectedName = e.target.value;
+                  if (selectedName && !selectedEmployeesForAnalysis.includes(selectedName)) {
+                    setSelectedEmployeesForAnalysis(prev => [...prev, selectedName]);
+                  }
+                  e.target.value = ""; // Reset dropdown after selection
+                }}
                 className="w-full md:w-64 bg-gray-700 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
               >
                 <option value="">-- Seleccionar Empleado --</option>
-                {/* Obtener lista única de empleados normalizados de los días seleccionados */}
                 {[...new Set(
                   selectedDaysForAnalysis
                     .flatMap(date => incomeData[date] || [])
                     .map(row => normalizeName(row.name))
                     .filter(name => name)
-                )].map((normalizedEmployeeName, index) => {
-                  // Encontrar el nombre original (con mayúsculas) del primer registro que coincida
+                )].sort().map((normalizedEmployeeName, index) => {
                   const originalName = selectedDaysForAnalysis
                     .flatMap(date => incomeData[date] || [])
                     .find(row => normalizeName(row.name) === normalizedEmployeeName)?.name || normalizedEmployeeName;
@@ -1501,46 +1538,75 @@ const App = () => {
                 })}
               </select>
             </div>
-            {/* Mostrar totales del empleado si hay uno seleccionado */}
-            {selectedEmployeeForAnalysis && (() => {
-              const employeeTotals = calculateEmployeePeriodTotals(selectedEmployeeForAnalysis);
-              // Encontrar el nombre original con mayúsculas correctas para mostrar
-              const displayName = selectedDaysForAnalysis
-                .flatMap(date => incomeData[date] || [])
-                .find(row => normalizeName(row.name) === selectedEmployeeForAnalysis)?.name || selectedEmployeeForAnalysis;
-              return (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left">
-                    <thead className="bg-gray-700">
-                      <tr>
-                        <th className="py-3 px-4 font-semibold">Empleado</th>
-                        <th className="py-3 px-4 font-semibold">Net Sales</th>
-                        <th className="py-3 px-4 font-semibold">Tips</th>
-                        <th className="py-3 px-4 font-semibold">Gratuity</th>
-                        <th className="py-3 px-4 font-semibold">5%</th>
-                        <th className="py-3 px-4 font-semibold">T+G</th>
-                        <th className="py-3 px-4 font-semibold">T+G-5%</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr className="border-b border-gray-700 hover:bg-gray-700">
-                        <td className="py-3 px-4 font-medium">{displayName}</td>
-                        <td className="py-3 px-4 text-green-400">${employeeTotals.netSales.toFixed(2)}</td>
-                        <td className="py-3 px-4 text-yellow-400">${employeeTotals.tips.toFixed(2)}</td>
-                        <td className="py-3 px-4 text-blue-400">${employeeTotals.gratuity.toFixed(2)}</td>
-                        <td className="py-3 px-4 text-red-400">${employeeTotals.fivePercent.toFixed(2)}</td>
-                        <td className="py-3 px-4 text-purple-400">${employeeTotals.tPlusG.toFixed(2)}</td>
-                        <td className="py-3 px-4 text-cyan-400">${employeeTotals.tPlusGMinusFive.toFixed(2)}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              );
-            })()}
-            {/* Mensaje si no hay empleado seleccionado */}
-            {!selectedEmployeeForAnalysis && (
+            
+            {selectedEmployeesForAnalysis.length > 0 && (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead className="bg-gray-700">
+                    <tr>
+                      <th className="py-3 px-4 font-semibold">Empleado</th>
+                      <th className="py-3 px-4 font-semibold">Net Sales</th>
+                      <th className="py-3 px-4 font-semibold">Tips</th>
+                      <th className="py-3 px-4 font-semibold">Gratuity</th>
+                      <th className="py-3 px-4 font-semibold">5%</th>
+                      <th className="py-3 px-4 font-semibold">T+G</th>
+                      <th className="py-3 px-4 font-semibold">T+G-5%</th>
+                      <th className="py-3 px-4 font-semibold">Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedEmployeesForAnalysis.map((normalizedName, index) => {
+                      const employeeTotals = calculateEmployeePeriodTotals(normalizedName);
+                      const displayName = selectedDaysForAnalysis
+                        .flatMap(date => incomeData[date] || [])
+                        .find(row => normalizeName(row.name) === normalizedName)?.name || normalizedName;
+                      
+                      return (
+                        <tr key={index} className="border-b border-gray-700 hover:bg-gray-700">
+                          <td className="py-3 px-4 font-medium">{displayName}</td>
+                          <td className="py-3 px-4 text-green-400">${employeeTotals.netSales.toFixed(2)}</td>
+                          <td className="py-3 px-4 text-yellow-400">${employeeTotals.tips.toFixed(2)}</td>
+                          <td className="py-3 px-4 text-blue-400">${employeeTotals.gratuity.toFixed(2)}</td>
+                          <td className="py-3 px-4 text-red-400">${employeeTotals.fivePercent.toFixed(2)}</td>
+                          <td className="py-3 px-4 text-purple-400">${employeeTotals.tPlusG.toFixed(2)}</td>
+                          <td className="py-3 px-4 text-cyan-400">${employeeTotals.tPlusGMinusFive.toFixed(2)}</td>
+                          <td className="py-3 px-4">
+                            <button
+                              onClick={() => setSelectedEmployeesForAnalysis(prev => prev.filter(name => name !== normalizedName))}
+                              className="bg-red-600 hover:bg-red-500 px-2 py-1 rounded text-xs"
+                              title="Quitar de la lista"
+                            >
+                              X
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {selectedEmployeesForAnalysis.length === 0 && (
               <div className="text-center py-8 text-gray-400">
-                <p>Seleccione un empleado para ver su resumen en el periodo.</p>
+                <p>Seleccione empleados para ver su resumen en el periodo.</p>
+              </div>
+            )}
+            
+            {selectedEmployeesForAnalysis.length > 0 && (
+              <div className="mt-6 flex gap-4">
+                <button
+                  onClick={downloadEmployeeAnalysisCSV}
+                  className="bg-green-600 hover:bg-green-500 px-6 py-2 rounded-lg font-semibold transition transform hover:scale-105"
+                >
+                  📥 Descargar CSV
+                </button>
+                <button
+                  onClick={() => setSelectedEmployeesForAnalysis([])}
+                  className="bg-gray-600 hover:bg-gray-500 px-6 py-2 rounded-lg font-semibold transition"
+                >
+                  Limpiar Selección
+                </button>
               </div>
             )}
           </div>
@@ -1599,14 +1665,15 @@ const App = () => {
                 <tbody>
                   {(incomeData[selectedDate] || []).map((row, index) => {
                     return (
-                      // Aplicar clase condicional si excludeFivePercent es true
                       <tr 
                         key={row.id} 
                         className={`border-b border-gray-700 hover:bg-gray-700 ${row.excludeFivePercent ? 'bg-blue-900 bg-opacity-30' : ''}`}
                       >
                         <td className="py-3 px-4">
+                          {/* --- TAREA 1: Datalist para Nombres en Ingresos --- */}
                           <input
                             type="text"
+                            list="employee-names"
                             value={row.name}
                             onChange={(e) => updateIncomeRow(selectedDate, index, 'name', e.target.value)}
                             className="bg-gray-600 text-white rounded px-3 py-2 w-full text-lg"
@@ -1615,8 +1682,10 @@ const App = () => {
                           />
                         </td>
                         <td className="py-3 px-4">
+                          {/* --- TAREA 1: Datalist para Puestos en Ingresos --- */}
                           <input
                             type="text"
+                            list="job-positions"
                             value={row.position}
                             onChange={(e) => updateIncomeRow(selectedDate, index, 'position', e.target.value)}
                             className="bg-gray-600 text-white rounded px-3 py-2 w-full text-lg"
@@ -1685,7 +1754,6 @@ const App = () => {
                       </tr>
                     );
                   })}
-                  {/* Fila de totales */}
                   {incomeData[selectedDate] && incomeData[selectedDate].length > 0 && (
                     <tr className="bg-gray-900 font-bold">
                       <td className="py-3 px-4 text-lg" colSpan="2">TOTALES</td>
@@ -1722,7 +1790,6 @@ const App = () => {
       {/* Módulo: Verificar Salarios */}
       {currentView === 'salaries' && !selectedCSV && (
         <div className="p-6 max-w-7xl mx-auto relative">
-          {/* Fondo elegante */}
           <div
             className="absolute inset-0 bg-cover bg-center opacity-70"
             style={{
@@ -1731,7 +1798,6 @@ const App = () => {
             }}
           ></div>
           <div className="relative z-10">
-            {/* Encabezado */}
             <div className="flex items-center justify-between mb-8">
               <button
                 onClick={() => setCurrentView('home')}
@@ -1747,7 +1813,6 @@ const App = () => {
                 <input type="file" accept=".csv,.txt" onChange={handleFileUpload} className="hidden" />
               </label>
             </div>
-            {/* Empleados Asalariados Fijos */}
             <h3 className="text-3xl font-bold mb-6 text-center text-emerald-400">
               Empleados Asalariados Fijos
             </h3>
@@ -1781,7 +1846,6 @@ const App = () => {
                 </tbody>
               </table>
             </div>
-            {/* Calendario */}
             <div className="bg-gray-800 rounded-2xl p-8 shadow-2xl">
               <div className="flex justify-between items-center mb-6">
                 <button onClick={goToPrevMonth} className="text-2xl hover:text-yellow-400 transition">⬅️</button>
@@ -1857,7 +1921,6 @@ const App = () => {
             <p className="text-xl text-gray-300">Archivo: <strong>{selectedCSV.fileName}</strong></p>
             <p className="text-gray-400">Subido el: {selectedCSV.uploadDate}</p>
           </div>
-          {/* Agrupar por empleado */}
           <div className="space-y-6">
             {Object.values(
               selectedCSV.data.reduce((acc, shift) => {
@@ -1879,7 +1942,6 @@ const App = () => {
                 group.employee.fullName.includes(emp.name.split(' ')[0]) || 
                 group.employee.fullName.includes(emp.name.split(' ')[1])
               );
-              // Calcular total horas HH:mm para este grupo
               const totalHHmm = sumHHmmTimes(group.shifts.map(shift => shift.hoursFormatted));
               return (
                 <div
@@ -1952,7 +2014,6 @@ const App = () => {
               📊 Descargar Análisis
             </button>
           </div>
-          {/* Resumen General */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <div className="bg-gradient-to-br from-blue-600 to-blue-800 rounded-2xl p-6 shadow-2xl">
               <div className="text-3xl mb-2">👥</div>
@@ -1975,9 +2036,7 @@ const App = () => {
               <div className="text-purple-200">Promedio por Empleado</div>
             </div>
           </div>
-          {/* Tablas de Análisis */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-            {/* Horas por Empleado */}
             <div className="bg-gray-800 rounded-2xl p-6 shadow-2xl">
               <h3 className="text-xl font-bold text-blue-400 mb-4 text-center">Horas Trabajadas por Empleado</h3>
               <div className="overflow-x-auto max-h-96">
@@ -2011,7 +2070,6 @@ const App = () => {
                 </table>
               </div>
             </div>
-            {/* Pago por Empleado */}
             <div className="bg-gray-800 rounded-2xl p-6 shadow-2xl">
               <h3 className="text-xl font-bold text-green-400 mb-4 text-center">Pago por Empleado</h3>
               <div className="overflow-x-auto max-h-96">
@@ -2047,7 +2105,6 @@ const App = () => {
             </div>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-            {/* Distribución por Puesto */}
             <div className="bg-gray-800 rounded-2xl p-6 shadow-2xl">
               <h3 className="text-xl font-bold text-purple-400 mb-4 text-center">Distribución por Puesto</h3>
               <div className="overflow-x-auto max-h-96">
@@ -2086,7 +2143,6 @@ const App = () => {
                 </table>
               </div>
             </div>
-            {/* Empleados por Puesto */}
             <div className="bg-gray-800 rounded-2xl p-6 shadow-2xl">
               <h3 className="text-xl font-bold text-orange-400 mb-4 text-center">Empleados por Puesto</h3>
               <div className="overflow-x-auto max-h-96">
@@ -2121,9 +2177,7 @@ const App = () => {
               </div>
             </div>
           </div>
-          {/* Tablas de Datos Detalladas */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Empleados Detallados */}
             <div className="bg-gray-800 rounded-2xl p-6 shadow-2xl">
               <h3 className="text-xl font-bold text-cyan-400 mb-4 text-center">Detalle por Empleado</h3>
               <div className="overflow-x-auto max-h-96">
@@ -2149,7 +2203,6 @@ const App = () => {
                 </table>
               </div>
             </div>
-            {/* Puestos Detallados */}
             <div className="bg-gray-800 rounded-2xl p-6 shadow-2xl">
               <h3 className="text-xl font-bold text-pink-400 mb-4 text-center">Detalle por Puesto</h3>
               <div className="overflow-x-auto max-h-96">
