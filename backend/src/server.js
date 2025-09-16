@@ -8,10 +8,11 @@ const app = express();
 
 // --- Configuración ---
 const PORT = process.env.PORT || 4000;
-const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || 'http://localhost:3000';
+const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || 'http://localhost';
 
 // Middlewares
-app.use(cors({ origin: ALLOWED_ORIGIN, credentials: false }));
+//app.use(cors({ origin: ALLOWED_ORIGIN, credentials: false }));
+app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
 // --- Rutas utilitarias ---

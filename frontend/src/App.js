@@ -68,7 +68,7 @@ const App = () => {
 
         console.log("✅ Datos iniciales cargados desde backend.");
       } catch (err) {
-        console.error("❌ No se pudieron cargar datos del backend:", err);
+        console.error("❌ No se pudieron cargar datos del backend:", err+"from"+API_BASE+"/api/data");
       }
     };
     loadData();

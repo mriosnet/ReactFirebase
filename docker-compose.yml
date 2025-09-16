@@ -12,7 +12,7 @@ services:
     ports:
       - "4000:4000"
     volumes:
-      - sqlite_data:/data # adjust path if your SQLite DB is elsewhere
+      - sqlite_data:/backend/data # adjust path if your SQLite DB is elsewhere
 
 volumes:
   sqlite_data:
